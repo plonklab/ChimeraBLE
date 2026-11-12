@@ -609,7 +609,7 @@ void UI::drawSentryList(const MenuView& menu, int16_t w, int16_t h) {
     canvas_.print(msg);
     return;
   }
-  constexpr int visRows = 5;
+  const int visRows = BOARD_SENTRY_ROWS;
   const int16_t rowH = 19, startY = 23;
   const size_t cur = (size_t)max(menu.selectedIndex, 0);
   const size_t page = cur / visRows;

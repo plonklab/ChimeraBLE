@@ -21,6 +21,7 @@
   static constexpr int  BOARD_DEVICE_ROWS  = 5;
   static constexpr int  BOARD_DUMP_ROWS    = 5;
   static constexpr int  BOARD_SETTING_ROWS = 5;
+  static constexpr int  BOARD_SENTRY_ROWS  = 5;
 #elif defined(CHIMERA_BOARD_CORES3)
   #include <M5Unified.h>
   #define BOARD M5
@@ -35,6 +36,7 @@
   static constexpr int  BOARD_DEVICE_ROWS  = 10;
   static constexpr int  BOARD_DUMP_ROWS    = 10;
   static constexpr int  BOARD_SETTING_ROWS = 9;
+  static constexpr int  BOARD_SENTRY_ROWS  = 10;   // same geometry as devices/dumps (rowH 19 / y 23)
 #else
   #error "No board selected: define CHIMERA_BOARD_CARDPUTER or CHIMERA_BOARD_CORES3 in platformio.ini"
 #endif
