@@ -501,7 +501,7 @@ void App::handleChar(char c) {
     audio_ = !audio_;
     prefs_.putBool("audio", audio_);
     log(String("foxhunt audio ") + (audio_ ? "on" : "off"));
-    if (!audio_) M5Cardputer.Speaker.stop();
+    if (!audio_) BOARD.Speaker.stop();
     return;
   }
   // ESC (top-left key emits '`') on the main menu opens a small action menu:
@@ -1092,7 +1092,7 @@ void App::connectSelected() {
     if (!confirmBlocking("Switch device?", "drop current connection")) return;  // user declined
     connection::disconnect();
     uint32_t t0 = millis();
-    while (connection::isConnected() && millis() - t0 < 2000) { M5Cardputer.update(); delay(20); }
+    while (connection::isConnected() && millis() - t0 < 2000) { hal::update(); delay(20); }
   }
 
   gatt::clearCache();   // drop any stale cache from a previous device
@@ -1401,7 +1401,7 @@ void App::cloneSelected() {
       if (!confirmBlocking("Switch device?", "drop current connection")) return;
       connection::disconnect();
       uint32_t t0 = millis();
-      while (connection::isConnected() && millis() - t0 < 2000) { M5Cardputer.update(); delay(20); }
+      while (connection::isConnected() && millis() - t0 < 2000) { hal::update(); delay(20); }
     }
     gatt::clearCache();
     ui_.message("Connecting...", r->addr.c_str(), 2, "ESC = stop");
@@ -1432,7 +1432,7 @@ void App::mitmSelected() {
     if (!confirmBlocking("Switch device?", "drop current connection")) return;
     connection::disconnect();
     uint32_t t0 = millis();
-    while (connection::isConnected() && millis() - t0 < 2000) { M5Cardputer.update(); delay(20); }
+    while (connection::isConnected() && millis() - t0 < 2000) { hal::update(); delay(20); }
   }
   gatt::clearCache();
 
@@ -1576,7 +1576,7 @@ void App::alertOpen(const scanner::Result& r, const sentry::Hit& h) {
 
   // Attention chirp (respect the user's volume).
   BOARD.Speaker.setVolume(volume_);
-  for (int i = 0; i < 3; ++i) { M5Cardputer.Speaker.tone(2000 + i * 500, 110); delay(130); }
+  for (int i = 0; i < 3; ++i) { BOARD.Speaker.tone(2000 + i * 500, 110); delay(130); }
 
   log(String("SENTRY MATCH: ") + alertLabel_ + " (" + alertReason_ + ") " + r.addr.c_str());
   enterScreen(MenuScreen::Alert);

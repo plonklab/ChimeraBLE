@@ -31,6 +31,27 @@ KeyState readKeyboard() {
 
 }  // namespace hal
 
+#elif defined(CHIMERA_BOARD_CORES3)
+
+#include "cardkb.h"
+
+namespace hal {
+
+void begin() {
+  auto cfg = M5.config();
+  M5.begin(cfg);     // M5Unified auto-detects CoreS3: display + AXP2101 + speaker
+  cardkb::begin();   // M5 Unit CardKB on Grove Port.A
+}
+
+void update() {
+  M5.update();
+  cardkb::poll();
+}
+
+KeyState readKeyboard() { return cardkb::read(); }
+
+}  // namespace hal
+
 #else
-#error "hal.cpp: unsupported board (the CoreS3 path is added in Task 2)"
+#error "No board selected for hal.cpp (define CHIMERA_BOARD_CARDPUTER or CHIMERA_BOARD_CORES3)"
 #endif
