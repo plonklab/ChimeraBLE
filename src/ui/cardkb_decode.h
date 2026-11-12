@@ -15,6 +15,18 @@
 
 namespace cardkb {
 
+// The CardKB v1.1 resolves letters/Shift/Sym/Fn on-device and returns plain
+// ASCII, but its dedicated arrow cluster + ESC key emit these fixed non-ASCII
+// bytes instead (standard across the M5 CardKB firmware). If a key turns out to
+// disagree on real hardware, correct it here -- the decoder is the one place
+// these raw codes are named. The decoder translates each into the Cardputer nav
+// character the shared UI already handles (see the switch in feed()).
+constexpr uint8_t kCardKbLeft  = 0xB4;   // -> ',' (back)
+constexpr uint8_t kCardKbUp    = 0xB5;   // -> ';' (up)
+constexpr uint8_t kCardKbDown  = 0xB6;   // -> '.' (down)
+constexpr uint8_t kCardKbRight = 0xB7;   // -> '/' (select/activate)
+constexpr uint8_t kCardKbEsc   = 0x1B;   // -> '`' (ESC action menu)
+
 struct Decoded {
   char key     = 0;      // ASCII of the key down this poll; 0 = none
   bool enter   = false;  // key == 0x0D (CR)
@@ -41,12 +53,22 @@ inline Decoded Decoder::feed(uint8_t byte) {
     last_ = 0;
     return d;
   }
-  d.key     = static_cast<char>(byte);
   d.pressed = true;
   d.enter   = (byte == 0x0D);   // CR
   d.del     = (byte == 0x08);   // BS
   d.changed = (byte != last_);  // a down-edge only when the key differs from last poll
-  last_ = byte;
+  last_ = byte;                 // edge tracks the RAW byte, so a held arrow doesn't re-edge
+  // Translate the dedicated arrow cluster + ESC into the Cardputer nav vocabulary
+  // (; . , / `). Every other byte is already the ASCII the UI expects and passes
+  // through untouched, so the shared App.cpp switch needs no board-specific cases.
+  switch (byte) {
+    case kCardKbLeft:  d.key = ','; break;
+    case kCardKbUp:    d.key = ';'; break;
+    case kCardKbDown:  d.key = '.'; break;
+    case kCardKbRight: d.key = '/'; break;
+    case kCardKbEsc:   d.key = '`'; break;
+    default:           d.key = static_cast<char>(byte); break;
+  }
   return d;
 }
 
