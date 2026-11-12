@@ -38,11 +38,19 @@ case "$ENV" in
   esp32dev)      CHIP=esp32;   BOOT_OFF=0x1000; FS_OFF=0x290000 ;;
   xiao_esp32c5)  CHIP=esp32c5; BOOT_OFF=0x2000; FS_OFF=0x290000 ;;
   cardputer)     CHIP=esp32s3; BOOT_OFF=0x0;    FS_OFF=0x670000 ;;
-  *) echo "unknown env '$ENV' (esp32dev | xiao_esp32c5 | cardputer)"; exit 1 ;;
+  cores3)        CHIP=esp32s3; BOOT_OFF=0x0;    FS_OFF=0xc90000 ;;
+  *) echo "unknown env '$ENV' (esp32dev | xiao_esp32c5 | cardputer | cores3)"; exit 1 ;;
 esac
 
 echo "[merge] building firmware + filesystem image for $ENV ..."
 "$PIO" run -e "$ENV" >/dev/null
+# pioarduino's buildfs recipe invokes `mklittlefs` by bare name, but the tool
+# ships in a package dir that isn't on PATH (buildfs then dies with 127). Put it
+# on PATH for this step. Override with MKLITTLEFS_DIR=... if yours lives elsewhere.
+MKLITTLEFS_DIR="${MKLITTLEFS_DIR:-$(dirname "$(find "$HOME/.platformio/packages" -iname mklittlefs -type f 2>/dev/null | grep -iv mklittlefs4 | head -1)" 2>/dev/null)}"
+if [ -n "$MKLITTLEFS_DIR" ] && [ -x "$MKLITTLEFS_DIR/mklittlefs" ]; then
+  export PATH="$MKLITTLEFS_DIR:$PATH"
+fi
 "$PIO" run -e "$ENV" -t buildfs >/dev/null
 
 OUT="$PROJ/${ENV}_merged.bin"
