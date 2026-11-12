@@ -11,12 +11,14 @@
 #if defined(CHIMERA_BOARD_CORES3)
 
 #include "cardkb_decode.h"
+#include "cardkb_probe.h"
 
 namespace {
 constexpr uint8_t kCardKbAddr = 0x5F;
 constexpr uint32_t kCardKbFreqHz = 400000;
 cardkb::Decoder g_decoder;
 cardkb::Decoded g_last;   // most recent decode, surfaced by read()
+cardkb::ProbeGate g_gate; // throttles the I2C probe when the CardKB is absent
 }  // namespace
 
 namespace cardkb {
@@ -29,11 +31,20 @@ void begin() {
 
 void poll() {
   uint8_t b = 0;
-  // Raw 1-byte read. If the CardKB doesn't ACK its address (absent/unplugged),
-  // start() returns false and we leave b = 0 -> decoded as "no key", no hang.
-  if (M5.Ex_I2C.start(kCardKbAddr, true, kCardKbFreqHz)) {
-    M5.Ex_I2C.read(&b, 1, true);   // last_nack = true after the single byte
-    M5.Ex_I2C.stop();
+  const uint32_t now = millis();
+  // Skip the I2C transaction entirely on throttled loops when the CardKB is
+  // known-absent (b stays 0 -> decoded as "no key"), so a missing keyboard
+  // doesn't pay the NAK cost every frame. g_gate re-probes every reprobe_ms to
+  // catch a hot-plug.
+  if (g_gate.should_probe(now)) {
+    // Raw 1-byte read. If the CardKB doesn't ACK its address (absent/unplugged),
+    // start() returns false and we leave b = 0 -> decoded as "no key", no hang.
+    const bool acked = M5.Ex_I2C.start(kCardKbAddr, true, kCardKbFreqHz);
+    if (acked) {
+      M5.Ex_I2C.read(&b, 1, true);   // last_nack = true after the single byte
+      M5.Ex_I2C.stop();
+    }
+    g_gate.update(acked, now);
   }
   g_last = g_decoder.feed(b);
 }
