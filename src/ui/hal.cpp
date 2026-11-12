@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Matthew Kukanich
+//
+// Board HAL implementation. One translation unit, board-selected by the
+// -DCHIMERA_BOARD_* flag. The Cardputer path is a pure pass-through to the
+// M5Cardputer global so the existing target is behavior-identical; the CoreS3
+// path (M5Unified + CardKB) is added in a later task.
+#include "hal.h"
+
+#if defined(CHIMERA_BOARD_CARDPUTER)
+
+namespace hal {
+
+void begin() {
+  auto cfg = M5.config();
+  M5Cardputer.begin(cfg, true);   // true = enable the built-in matrix keyboard
+}
+
+void update() { M5Cardputer.update(); }
+
+KeyState readKeyboard() {
+  KeyState k;
+  k.changed = M5Cardputer.Keyboard.isChange();
+  k.pressed = M5Cardputer.Keyboard.isPressed();
+  const auto ks = M5Cardputer.Keyboard.keysState();
+  k.word  = ks.word;
+  k.enter = ks.enter;
+  k.del   = ks.del;
+  return k;
+}
+
+}  // namespace hal
+
+#else
+#error "hal.cpp: unsupported board (the CoreS3 path is added in Task 2)"
+#endif

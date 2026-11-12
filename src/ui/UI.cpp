@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Matthew Kukanich
 
 #include "UI.h"
+#include "hal.h"
 
 #include <math.h>
 #include <string.h>
@@ -43,14 +44,13 @@ constexpr const char* kAboutVersion = "v1.0.1";
 }  // namespace
 
 void UI::begin() {
-  auto cfg = M5.config();
-  M5Cardputer.begin(cfg, true);
-  auto& d = M5Cardputer.Display;
+  hal::begin();
+  auto& d = BOARD.Display;
   d.setRotation(1);
   d.setTextSize(1);
   d.setTextColor(kText, kBg);
 
-  canvas_.setPsram(false);   // StampS3 has no PSRAM - keep the sprite in DRAM
+  canvas_.setPsram(BOARD_CANVAS_PSRAM);   // CoreS3 has PSRAM; StampS3 does not
   canvas_.setColorDepth(16);
   if (d.width() > 0 && d.height() > 0) {
     canvasReady_ = canvas_.createSprite(d.width(), d.height());
@@ -105,7 +105,7 @@ void UI::draw(const MenuView& menu, const String& inputBuffer,
   }
 
   drawFooter(menu, inputBuffer, w, h);
-  canvas_.pushSprite(&M5Cardputer.Display, 0, 0);
+  canvas_.pushSprite(&BOARD.Display, 0, 0);
 }
 
 void UI::message(const char* title, const char* sub, uint8_t subSize, const char* hint) {
@@ -152,7 +152,7 @@ void UI::message(const char* title, const char* sub, uint8_t subSize, const char
     canvas_.print(hint);
   }
   canvas_.setTextSize(1);   // restore default for subsequent draws
-  canvas_.pushSprite(&M5Cardputer.Display, 0, 0);
+  canvas_.pushSprite(&BOARD.Display, 0, 0);
   lastDrawMs_ = millis();
 }
 
@@ -734,7 +734,7 @@ void UI::drawSplash() {
   canvas_.print(gh);
 
   canvas_.setTextSize(1);
-  canvas_.pushSprite(&M5Cardputer.Display, 0, 0);
+  canvas_.pushSprite(&BOARD.Display, 0, 0);
   lastDrawMs_ = millis();
 }
 
@@ -777,7 +777,7 @@ void UI::drawCharging(int level, bool charging, int16_t mv, int32_t ma) {
   canvas_.setCursor((w - (int16_t)strlen(hint) * 6) / 2 + ox, h - 12 + oy);
   canvas_.print(hint);
 
-  canvas_.pushSprite(&M5Cardputer.Display, 0, 0);
+  canvas_.pushSprite(&BOARD.Display, 0, 0);
   lastDrawMs_ = millis();
 }
 

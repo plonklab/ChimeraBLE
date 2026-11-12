@@ -21,6 +21,7 @@
 #include "scanner.h"
 #include "sentry.h"
 #include "uuid_db.h"
+#include "hal.h"
 
 namespace {
 
@@ -86,7 +87,7 @@ constexpr size_t countOf(const char* const (&)[N]) { return N; }
 // created if missing (see App::resolveSdBase); CHIMERA_SD_DIR is the canonical
 // name used when none exists yet.
 #define CHIMERA_SD_DIR "/ChimeraBLE"
-constexpr int kSdSck = 40, kSdMiso = 39, kSdMosi = 14, kSdCs = 12;
+constexpr int kSdSck = BOARD_SD_SCK, kSdMiso = BOARD_SD_MISO, kSdMosi = BOARD_SD_MOSI, kSdCs = BOARD_SD_CS;
 
 // Filesystem-safe slug: keep alphanumerics, collapse runs of other chars to a
 // single '_', trim, cap length. e.g. "Sonos Roam!" -> "Sonos_Roam".
@@ -174,9 +175,9 @@ void App::adjustVolume(int delta) {
   int v = (int)volume_ + delta;
   if (v < 0) v = 0; if (v > 255) v = 255;
   volume_ = (uint8_t)v;
-  M5Cardputer.Speaker.setVolume(volume_);
+  BOARD.Speaker.setVolume(volume_);
   prefs_.putUChar("vol", volume_);
-  M5Cardputer.Speaker.tone(1500, 30);   // sample blip at the new volume
+  BOARD.Speaker.tone(1500, 30);   // sample blip at the new volume
 }
 
 void App::buildScanLabel() {
@@ -195,7 +196,7 @@ void App::foxhuntAudioTick() {
   uint32_t interval = (uint32_t)(1000.0f - f * 940.0f);   // 1000ms far -> 60ms near
   uint32_t now = millis();
   if (now - lastBeepMs_ >= interval) {
-    M5Cardputer.Speaker.tone(700.0f + f * 2000.0f, 25);   // 700Hz far -> 2700Hz near
+    BOARD.Speaker.tone(700.0f + f * 2000.0f, 25);   // 700Hz far -> 2700Hz near
     lastBeepMs_ = now;
   }
 }
@@ -217,8 +218,8 @@ void App::begin() {
   buildMainItems();
 
   ui_.begin();
-  M5Cardputer.Speaker.setVolume(volume_);
-  M5Cardputer.Display.setBrightness(brightness_);
+  BOARD.Speaker.setVolume(volume_);
+  BOARD.Display.setBrightness(brightness_);
   sampleBattery(true);   // establish a battery baseline before the first draw
 
   // Brief branded boot splash, then on into the rest of init + the main menu.
@@ -283,7 +284,7 @@ void App::begin() {
 }
 
 void App::loop() {
-  M5Cardputer.update();
+  hal::update();
   if (chargingMode_) { chargingTick(); return; }   // low-power battery screen
   engineTick();
   honeypotTick();
@@ -382,10 +383,10 @@ void App::engineTick() {
 // ----------------------------------------------------------------- input
 
 void App::handleKeyboard() {
-  if (!M5Cardputer.Keyboard.isChange() || !M5Cardputer.Keyboard.isPressed()) {
+  hal::KeyState keys = hal::readKeyboard();
+  if (!keys.changed || !keys.pressed) {
     return;
   }
-  Keyboard_Class::KeysState keys = M5Cardputer.Keyboard.keysState();
 
   // Passkey-entry modal: type the digits shown on the peer. Enter injects,
   // backspace edits (or cancels+disconnects when empty).
@@ -905,16 +906,16 @@ void App::activateSetting() {
       uint16_t nv = ((volume_ / 32) + 1) * 32;
       if (nv > 255) nv = 0;
       volume_ = (uint8_t)nv;
-      M5Cardputer.Speaker.setVolume(volume_);
+      BOARD.Speaker.setVolume(volume_);
       prefs_.putUChar("vol", volume_);
-      M5Cardputer.Speaker.tone(1500, 40);            // audible sample at new level
+      BOARD.Speaker.tone(1500, 40);            // audible sample at new level
       break;
     }
     case SettingKind::Brightness: {                  // cycle, keep a readable minimum
       uint16_t nb = ((brightness_ / 32) + 1) * 32;
       if (nb > 255) nb = 32;
       brightness_ = (uint8_t)nb;
-      M5Cardputer.Display.setBrightness(brightness_);
+      BOARD.Display.setBrightness(brightness_);
       prefs_.putUChar("bright", brightness_);
       break;
     }
@@ -1065,9 +1066,10 @@ void App::doScan() {
 // Polled by the blocking connect: pump M5 input and report an ESC press so a
 // hanging connect can be aborted (ESC = the top-left `` ` `` key -> '`').
 bool App::connectCancelRequested() {
-  M5Cardputer.update();
-  if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
-    for (char c : M5Cardputer.Keyboard.keysState().word)
+  hal::update();
+  const hal::KeyState keys = hal::readKeyboard();
+  if (keys.changed && keys.pressed) {
+    for (char c : keys.word)
       if (c == '`') { connectCanceled_ = true; return true; }
   }
   return false;
@@ -1112,8 +1114,8 @@ void App::popup(const char* title, const char* sub, uint32_t ms) {
   ui_.message(title, sub);
   const uint32_t t0 = millis();
   while (millis() - t0 < ms) {
-    M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) break;
+    hal::update();
+    { const hal::KeyState keys = hal::readKeyboard(); if (keys.changed && keys.pressed) break; }
     delay(20);
   }
 }
@@ -1122,9 +1124,9 @@ bool App::confirmBlocking(const char* title, const char* sub, uint32_t timeoutMs
   ui_.message(title, (String(sub) + "   Enter=yes  any=no").c_str());
   const uint32_t t0 = millis();
   while (millis() - t0 < timeoutMs) {
-    M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
-      auto keys = M5Cardputer.Keyboard.keysState();
+    hal::update();
+    const hal::KeyState keys = hal::readKeyboard();
+    if (keys.changed && keys.pressed) {
       if (keys.enter) return true;
       if (keys.del || !keys.word.empty()) return false;
     }
@@ -1449,7 +1451,7 @@ void App::mitmSelected() {
   connection::secure();
   uint32_t t0 = millis();
   while (connection::isConnected() && !connection::isEncrypted() && millis() - t0 < 6000) {
-    M5Cardputer.update();
+    hal::update();
     connection::serviceAutoRetry();
     delay(20);
   }
@@ -1491,7 +1493,7 @@ void App::sentryToggleWatching() {
   sentryWatching_ = !sentryWatching_;
   if (!sentryWatching_) {
     if (scanner::isScanning()) scanner::stop();
-    M5Cardputer.Speaker.stop();
+    BOARD.Speaker.stop();
   } else {
     sentryCooldown_.clear();   // fresh session: let everything re-alert
     if (sentry::enabledCount() == 0) log("Sentry: no enabled rules to watch");
@@ -1573,7 +1575,7 @@ void App::alertOpen(const scanner::Result& r, const sentry::Hit& h) {
   sentryCooldown_[r.addr] = millis() + 120000;    // 2-min re-alert cooldown
 
   // Attention chirp (respect the user's volume).
-  M5Cardputer.Speaker.setVolume(volume_);
+  BOARD.Speaker.setVolume(volume_);
   for (int i = 0; i < 3; ++i) { M5Cardputer.Speaker.tone(2000 + i * 500, 110); delay(130); }
 
   log(String("SENTRY MATCH: ") + alertLabel_ + " (" + alertReason_ + ") " + r.addr.c_str());
@@ -1621,10 +1623,10 @@ void App::sampleBattery(bool force) {
   if (!force && batLastSampleMs_ != 0 && now - batLastSampleMs_ < kBatSampleMs) return;
   batLastSampleMs_ = now;
 
-  int  raw      = (int)M5Cardputer.Power.getBatteryLevel();
-  bool charging = ((int)M5Cardputer.Power.isCharging() == 1);
-  batMilliVolts_ = M5Cardputer.Power.getBatteryVoltage();
-  batMilliAmps_  = M5Cardputer.Power.getBatteryCurrent();
+  int  raw      = (int)BOARD.Power.getBatteryLevel();
+  bool charging = ((int)BOARD.Power.isCharging() == 1);
+  batMilliVolts_ = BOARD.Power.getBatteryVoltage();
+  batMilliAmps_  = BOARD.Power.getBatteryCurrent();
 
   if (!charging) {
     if (raw >= 0) lastDischargeLevel_ = raw;   // remember the honest on-battery %
@@ -1654,13 +1656,13 @@ void App::enterChargingMode() {
   if (scanner::isScanning())      scanner::stop();
   if (scanner::foxhuntActive())   scanner::foxhuntStop();
   sentryWatching_ = false;        // pause background detection
-  M5Cardputer.Speaker.stop();
+  BOARD.Speaker.stop();
 
   // Drop the CPU clock (80 MHz keeps BLE/USB stable) and dim the LCD hard - the
   // backlight is the dominant draw, and a near-off panel avoids burn-in.
   savedCpuMhz_ = getCpuFrequencyMhz();
   setCpuFrequencyMhz(80);
-  M5Cardputer.Display.setBrightness(kChargeBrightness);
+  BOARD.Display.setBrightness(kChargeBrightness);
 
   lastChargeDrawMs_ = 0;          // force an immediate first draw
   chargingMode_ = true;
@@ -1670,14 +1672,15 @@ void App::enterChargingMode() {
 void App::exitChargingMode() {
   chargingMode_ = false;
   setCpuFrequencyMhz(savedCpuMhz_ ? savedCpuMhz_ : 240);
-  M5Cardputer.Display.setBrightness(brightness_);   // restore the user's brightness
+  BOARD.Display.setBrightness(brightness_);   // restore the user's brightness
   enterScreen(MenuScreen::Settings);
   log("charging mode off");
 }
 
 void App::chargingTick() {
   // Any keypress leaves charging mode.
-  if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
+  const hal::KeyState keys = hal::readKeyboard();
+  if (keys.changed && keys.pressed) {
     exitChargingMode();
     return;
   }
