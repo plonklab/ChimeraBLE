@@ -4,7 +4,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <M5Cardputer.h>
+#include "board.h"
 #include <string>
 #include <vector>
 
