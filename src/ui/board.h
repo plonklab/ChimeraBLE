@@ -16,6 +16,11 @@
   static constexpr int  BOARD_SD_MISO = 39;
   static constexpr int  BOARD_SD_MOSI = 14;
   static constexpr int  BOARD_SD_CS   = 12;
+  // Paged-list visible-row counts, hand-tuned to the 240x135 panel.
+  static constexpr int  BOARD_MENU_ROWS    = 4;
+  static constexpr int  BOARD_DEVICE_ROWS  = 5;
+  static constexpr int  BOARD_DUMP_ROWS    = 5;
+  static constexpr int  BOARD_SETTING_ROWS = 5;
 #elif defined(CHIMERA_BOARD_CORES3)
   #include <M5Unified.h>
   #define BOARD M5
@@ -24,6 +29,12 @@
   static constexpr int  BOARD_SD_MISO = 35;
   static constexpr int  BOARD_SD_MOSI = 37;
   static constexpr int  BOARD_SD_CS   = 4;
+  // Paged-list visible-row counts for the taller 320x240 panel (fit above the
+  // footer at y=222; same row heights as the Cardputer, just more rows).
+  static constexpr int  BOARD_MENU_ROWS    = 9;
+  static constexpr int  BOARD_DEVICE_ROWS  = 10;
+  static constexpr int  BOARD_DUMP_ROWS    = 10;
+  static constexpr int  BOARD_SETTING_ROWS = 9;
 #else
   #error "No board selected: define CHIMERA_BOARD_CARDPUTER or CHIMERA_BOARD_CORES3 in platformio.ini"
 #endif

@@ -246,7 +246,7 @@ void UI::printHint(int16_t x, int16_t y, const String& s, uint16_t fg, uint16_t 
 
 void UI::drawMenuList(const MenuView& menu, int16_t w, int16_t h) {
   if (!menu.items || menu.itemCount == 0) return;
-  constexpr int rows = 4;
+  const int rows = BOARD_MENU_ROWS;
   const int16_t rowH = 22;
   const int16_t startY = 24;
   const size_t cur = (size_t)max(menu.selectedIndex, 0);
@@ -273,7 +273,7 @@ void UI::drawDevices(const MenuView& menu, int16_t w, int16_t h) {
     canvas_.print(scanner::isScanning() ? "scanning..." : "no devices - Scan first");
     return;
   }
-  constexpr int rows = 5;
+  const int rows = BOARD_DEVICE_ROWS;
   const int16_t rowH = 19;
   const int16_t startY = 23;
   const size_t cur = (size_t)max(menu.selectedIndex, 0);
@@ -489,7 +489,7 @@ void UI::drawDumps(const MenuView& menu, int16_t w, int16_t h) {
     canvas_.print("no saved dumps");
     return;
   }
-  constexpr int rows = 5;
+  const int rows = BOARD_DUMP_ROWS;
   const int16_t rowH = 19, startY = 23;
   const size_t cur = (size_t)max(menu.selectedIndex, 0);
   const size_t page = cur / rows;
@@ -509,7 +509,7 @@ void UI::drawDumps(const MenuView& menu, int16_t w, int16_t h) {
 void UI::drawSettings(const MenuView& menu, int16_t w, int16_t h) {
   const auto* items = menu.settingsLabels;
   if (!items || items->empty()) return;
-  constexpr int rows = 5;
+  const int rows = BOARD_SETTING_ROWS;
   const int16_t rowH = 20, startY = 24;
   const size_t cur = (size_t)max(menu.selectedIndex, 0);
   const size_t page = cur / rows;
