@@ -72,4 +72,14 @@ inline Decoded Decoder::feed(uint8_t byte) {
   return d;
 }
 
+// Whether a decoded key belongs in hal::KeyState.word. Text characters do
+// (printable keys AND the translated arrows/ESC, which reach the nav switch via
+// word); Enter (0x0D) and Del (0x08) do NOT -- they travel as the enter/del
+// flags only, matching the Cardputer whose keysState().word excludes them. This
+// keeps a naive `for (char c : word)` consumer from ever seeing a stray CR/BS on
+// the CoreS3 path but not the Cardputer.
+inline bool is_text_key(const Decoded& d) {
+  return d.key != 0 && !d.enter && !d.del;
+}
+
 }  // namespace cardkb

@@ -40,7 +40,7 @@ void poll() {
 
 hal::KeyState read() {
   hal::KeyState k;
-  if (g_last.key != 0) k.word.push_back(g_last.key);
+  if (is_text_key(g_last)) k.word.push_back(g_last.key);   // Enter/Del are flags only (word parity with Cardputer)
   k.enter   = g_last.enter;
   k.del     = g_last.del;
   k.changed = g_last.changed;

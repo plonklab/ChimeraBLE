@@ -112,6 +112,27 @@ void test_held_arrow_raises_one_edge() {
   TEST_ASSERT_TRUE(again.changed);
 }
 
+// KeyState.word must hold text characters only -- Enter (0x0D) and Del (0x08)
+// travel as the enter/del flags, never in word, matching the Cardputer (whose
+// keysState().word excludes them). Translated arrows/ESC ARE text (they reach
+// the nav switch via word), so they stay in. Guards the CoreS3-only "stray
+// CR/BS in word" parity trap.
+void test_word_holds_text_keys_only() {
+  Decoder d;
+
+  TEST_ASSERT_TRUE(cardkb::is_text_key(d.feed('a')));          // printable -> in word
+  d.feed(0);
+  TEST_ASSERT_FALSE(cardkb::is_text_key(d.feed(0x0D)));        // Enter -> flag only
+  d.feed(0);
+  TEST_ASSERT_FALSE(cardkb::is_text_key(d.feed(0x08)));        // Del   -> flag only
+  d.feed(0);
+  TEST_ASSERT_TRUE(cardkb::is_text_key(d.feed(cardkb::kCardKbRight)));  // arrow -> text
+  d.feed(0);
+  TEST_ASSERT_TRUE(cardkb::is_text_key(d.feed(cardkb::kCardKbEsc)));    // ESC   -> text
+  d.feed(0);
+  TEST_ASSERT_FALSE(cardkb::is_text_key(d.feed(0)));           // no key -> not text
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -122,5 +143,6 @@ int main(int, char**) {
   RUN_TEST(test_no_key_is_quiet);
   RUN_TEST(test_arrows_and_esc_map_to_nav_chars);
   RUN_TEST(test_held_arrow_raises_one_edge);
+  RUN_TEST(test_word_holds_text_keys_only);
   return UNITY_END();
 }
