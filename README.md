@@ -23,15 +23,20 @@ Built on [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino) 2.x.
 |---|---|---|---|
 | `esp32dev` | ESP32 WROOM | classic Xtensa dual-core | serial CLI |
 | `xiao_esp32c5` | Seeed Studio XIAO ESP32-C5 | RISC-V single-core | serial CLI |
-| `cardputer` | M5Stack Cardputer ADV | ESP32-S3 (Stamp-S3A) | on-device M5 UI |
+| `cardputer` | M5Stack Cardputer ADV | ESP32-S3 (Stamp-S3A) | on-device M5 UI (built-in keyboard) |
+| `cores3` | M5Stack CoreS3 + Unit CardKB v1.1 | ESP32-S3 | on-device M5 UI (CardKB on Port.A) |
 
 All targets use the [pioarduino](https://github.com/pioarduino/platform-espressif32)
 platform (Arduino-ESP32 3.x / ESP-IDF 5.5) and **share the same BLE engine**
 (`scanner`, `connection`, `gatt`, `adv_parser`, `uuid_db`, `hid_parser`, `oui_db`,
 `fingerprint`, `clone`). `build_src_filter` swaps only the front-end: the serial
-targets use `main.cpp` + `cli.cpp`; the Cardputer uses [`src/ui/`](src/ui/) (an
-M5 menu UI in `App`/`UI`) and runs the engine natively on its own S3 radio - no
-companion device. The XIAO ESP32-C5 board def lives in
+targets use `main.cpp` + `cli.cpp`; the Cardputer and CoreS3 use
+[`src/ui/`](src/ui/) (an M5 menu UI in `App`/`UI`) and run the engine natively
+on their own S3 radio - no companion device. The two M5 targets share one UI
+codebase behind a compile-time board HAL ([`src/ui/board.h`](src/ui/board.h) +
+[`hal.h`](src/ui/hal.h)); the CoreS3 reads an [M5 Unit CardKB](src/ui/cardkb.h)
+over I2C on Port.A in place of the Cardputer's built-in keyboard. The XIAO
+ESP32-C5 board def lives in
 [`boards/seeed_xiao_esp32c5.json`](boards/seeed_xiao_esp32c5.json).
 
 ---
@@ -447,14 +452,18 @@ MAC in standard scan/connect mode - the `.active` trigger is one-shot.
 ## Prebuilt firmware
 
 Prebuilt binaries are attached to the GitHub **Releases** page (not committed to
-the tree): the Cardputer `ChimeraBLE.bin` (sideload via the M5 launcher, or a
-merged `0x0` image), and the OUI vendor database `oui.bin`.
+the tree); `tools/build_release.sh` produces them all. Each on-device-UI board
+ships two forms: an app-only `*_M5Launcher.bin` (sideload via the M5 /
+bmorcelli launcher from SD) and a merged `*_merged.bin` (one-shot flash at
+`0x0`). The OUI vendor database `oui.bin` ships standalone too.
 
-- **Cardputer:** copy `oui.bin` into the **`/ChimeraBLE/` folder on the microSD
-  card** (i.e. `/ChimeraBLE/oui.bin`) for MAC-vendor names (optional - everything
-  else works without it). ChimeraBLE keeps all its files in that one folder and
-  creates it on first launch, or you can make it yourself and drop `oui.bin` in.
-  See [`CARDPUTER_GUIDE.md`](CARDPUTER_GUIDE.md).
+- **Cardputer / CoreS3:** copy `oui.bin` into the **`/ChimeraBLE/` folder on the
+  microSD card** (i.e. `/ChimeraBLE/oui.bin`) for MAC-vendor names (optional -
+  everything else works without it). The app keeps all its files in that one
+  folder and creates it on first launch. Both M5 targets read the OUI DB (and
+  write dumps/clones/logs) from SD, because under the launcher the app's own
+  LittleFS partition isn't active. CoreS3 adds a **CardKB** on Grove Port.A for
+  input. See [`CARDPUTER_GUIDE.md`](CARDPUTER_GUIDE.md).
 - **Serial boards (esp32dev / xiao_esp32c5):** the OUI DB lives on LittleFS -
   generate it with `python tools/make_oui_bin.py` (writes `data/oui.bin`), then
   `pio run -e <env> -t uploadfs`.
