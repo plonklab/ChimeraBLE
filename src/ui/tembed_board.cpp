@@ -192,6 +192,7 @@ void tembed_leds::begin() {
   if (rmt_new_tx_channel(&cc, &g_led) != ESP_OK) return;
   rmt_copy_encoder_config_t ec = {};
   if (rmt_new_copy_encoder(&ec, &g_enc) != ESP_OK || rmt_enable(g_led) != ESP_OK) {
+    if (g_enc) { rmt_del_encoder(g_enc); g_enc = nullptr; }
     rmt_del_channel(g_led);
     g_led = nullptr;
     return;
