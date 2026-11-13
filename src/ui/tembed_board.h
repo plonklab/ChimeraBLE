@@ -83,11 +83,14 @@ class LGFX : public lgfx::LGFX_Device {
   }
 };
 
-// Stub speaker (real I2S audio in a later task).
+// MAX98357A I2S tone generator (BCLK=46, WS=40, DOUT=7). Defined in
+// tembed_board.cpp. tone() is a short blocking write; I2S is lazily started.
 struct TEmbedSpeaker {
-  void setVolume(uint8_t) {}
-  void tone(float, uint32_t) {}
-  void stop() {}
+  void setVolume(uint8_t v);
+  void tone(float freqHz, uint32_t ms);
+  void stop();
+private:
+  uint8_t vol_ = 128;
 };
 
 // Power/battery over the shared I2C bus (SDA=8, SCL=18): BQ27220 fuel gauge
