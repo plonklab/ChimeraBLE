@@ -17,6 +17,7 @@ manuf.json
 .DS_Store
 *.orig
 
-# SDD design docs + host test harness — kept local, out of the fork's tracked tree
+# SDD design docs + host test harness + orchestration scratch — kept local, out of the fork's tracked tree
 docs/
 test/
+.superpowers/
