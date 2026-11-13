@@ -52,6 +52,26 @@ KeyState readKeyboard() { return cardkb::read(); }
 
 }  // namespace hal
 
+#elif defined(CHIMERA_BOARD_TEMBED)
+
+#include <Arduino.h>
+
+namespace hal {
+
+// Stub: display bring-up only. Real input (encoder/keys) is added later.
+void begin() {
+  pinMode(tembed_pins::PWR_EN, OUTPUT);
+  digitalWrite(tembed_pins::PWR_EN, HIGH);   // power-latch / peripheral rail
+  BOARD.Display.init();
+  BOARD.Display.setBrightness(128);
+}
+
+void update() { BOARD.update(); }
+
+KeyState readKeyboard() { return KeyState{}; }
+
+}  // namespace hal
+
 #else
-#error "No board selected for hal.cpp (define CHIMERA_BOARD_CARDPUTER or CHIMERA_BOARD_CORES3)"
+#error "No board selected for hal.cpp (define CHIMERA_BOARD_CARDPUTER, CHIMERA_BOARD_CORES3 or CHIMERA_BOARD_TEMBED)"
 #endif

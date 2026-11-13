@@ -37,6 +37,20 @@
   static constexpr int  BOARD_DUMP_ROWS    = 10;
   static constexpr int  BOARD_SETTING_ROWS = 9;
   static constexpr int  BOARD_SENTRY_ROWS  = 10;   // same geometry as devices/dumps (rowH 19 / y 23)
+#elif defined(CHIMERA_BOARD_TEMBED)
+  #include "tembed_board.h"
+  #define BOARD BOARD_INSTANCE
+  static constexpr bool BOARD_CANVAS_PSRAM = true;    // T-Embed: 8 MB OPI PSRAM
+  static constexpr int  BOARD_SD_SCK  = 11;
+  static constexpr int  BOARD_SD_MISO = 10;
+  static constexpr int  BOARD_SD_MOSI = 9;
+  static constexpr int  BOARD_SD_CS   = 13;
+  // 320x170 landscape: shorter than CoreS3; glass-tune later.
+  static constexpr int  BOARD_MENU_ROWS    = 7;
+  static constexpr int  BOARD_DEVICE_ROWS  = 7;
+  static constexpr int  BOARD_DUMP_ROWS    = 7;
+  static constexpr int  BOARD_SETTING_ROWS = 7;
+  static constexpr int  BOARD_SENTRY_ROWS  = 7;
 #else
-  #error "No board selected: define CHIMERA_BOARD_CARDPUTER or CHIMERA_BOARD_CORES3 in platformio.ini"
+  #error "No board selected: define CHIMERA_BOARD_CARDPUTER, CHIMERA_BOARD_CORES3 or CHIMERA_BOARD_TEMBED in platformio.ini"
 #endif

@@ -39,7 +39,8 @@ case "$ENV" in
   xiao_esp32c5)  CHIP=esp32c5; BOOT_OFF=0x2000; FS_OFF=0x290000 ;;
   cardputer)     CHIP=esp32s3; BOOT_OFF=0x0;    FS_OFF=0x670000 ;;
   cores3)        CHIP=esp32s3; BOOT_OFF=0x0;    FS_OFF=0xc90000 ;;
-  *) echo "unknown env '$ENV' (esp32dev | xiao_esp32c5 | cardputer | cores3)"; exit 1 ;;
+  tembed)        CHIP=esp32s3; BOOT_OFF=0x0;    FS_OFF=0xc90000 ;;
+  *) echo "unknown env '$ENV' (esp32dev | xiao_esp32c5 | cardputer | cores3 | tembed)"; exit 1 ;;
 esac
 
 echo "[merge] building firmware + filesystem image for $ENV ..."

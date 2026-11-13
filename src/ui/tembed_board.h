@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Matthew Kukanich
+//
+// LilyGo T-Embed CC1101 Plus board shim. Provides the BOARD-shaped object the
+// UI expects (Display / Speaker / Power / update()) on top of plain LovyanGFX,
+// so UI.cpp / App.cpp stay board-agnostic. Display only in this revision;
+// Speaker/Power are stubs filled by later tasks. The LGFX class and the single
+// BOARD_INSTANCE live in tembed_board.cpp (one translation unit).
+#pragma once
+
+#include <cstdint>
+#define LGFX_USE_V1
+#include <LovyanGFX.hpp>
+
+// The UI declares `M5Canvas canvas_;` — on this board that is a plain sprite.
+using M5Canvas = LGFX_Sprite;
+
+// Pins (T-Embed CC1101 Plus). Display SPI bus is shared with the SD card.
+namespace tembed_pins {
+static constexpr int TFT_SCLK = 11;
+static constexpr int TFT_MOSI = 9;
+static constexpr int TFT_MISO = 10;
+static constexpr int TFT_CS   = 41;
+static constexpr int TFT_DC   = 16;
+static constexpr int TFT_RST  = -1;   // IO40 is the audio word-clock; Task 7 resolves
+static constexpr int TFT_BL   = 21;
+static constexpr int PWR_EN   = 15;
+}  // namespace tembed_pins
+
+// ST7789, 170x320 native, used as 320x170 landscape.
+class LGFX : public lgfx::LGFX_Device {
+  lgfx::Panel_ST7789 panel_;
+  lgfx::Bus_SPI      bus_;
+  lgfx::Light_PWM    light_;
+
+ public:
+  LGFX() {
+    {
+      auto cfg = bus_.config();
+      cfg.spi_host    = SPI3_HOST;
+      cfg.spi_mode    = 0;
+      cfg.freq_write  = 40000000;
+      cfg.freq_read   = 16000000;
+      cfg.spi_3wire   = false;
+      cfg.use_lock    = true;
+      cfg.dma_channel = SPI_DMA_CH_AUTO;
+      cfg.pin_sclk    = tembed_pins::TFT_SCLK;
+      cfg.pin_mosi    = tembed_pins::TFT_MOSI;
+      cfg.pin_miso    = -1;   // write-only; MISO (IO10) is left to the SD driver
+      cfg.pin_dc      = tembed_pins::TFT_DC;
+      bus_.config(cfg);
+      panel_.setBus(&bus_);
+    }
+    {
+      auto cfg = panel_.config();
+      cfg.pin_cs           = tembed_pins::TFT_CS;
+      cfg.pin_rst          = tembed_pins::TFT_RST;
+      cfg.pin_busy         = -1;
+      cfg.panel_width      = 170;
+      cfg.panel_height     = 320;
+      cfg.offset_x         = 35;
+      cfg.offset_y         = 0;
+      cfg.offset_rotation  = 0;
+      cfg.dummy_read_pixel = 8;
+      cfg.dummy_read_bits  = 1;
+      cfg.readable         = false;
+      cfg.invert           = true;
+      cfg.rgb_order        = false;
+      cfg.dlen_16bit       = false;
+      cfg.bus_shared       = true;   // SD card shares SCK/MOSI
+      panel_.config(cfg);
+    }
+    {
+      auto cfg = light_.config();
+      cfg.pin_bl      = tembed_pins::TFT_BL;
+      cfg.invert      = false;
+      cfg.freq        = 44100;
+      cfg.pwm_channel = 7;
+      light_.config(cfg);
+      panel_.setLight(&light_);
+    }
+    setPanel(&panel_);
+  }
+};
+
+// Stub speaker (real I2S audio in a later task).
+struct TEmbedSpeaker {
+  void setVolume(uint8_t) {}
+  void tone(float, uint32_t) {}
+  void stop() {}
+};
+
+// Stub power/battery (real fuel-gauge/ADC in a later task).
+struct TEmbedPower {
+  int  getBatteryLevel()   { return 0; }
+  bool isCharging()        { return false; }
+  int  getBatteryVoltage() { return 0; }
+  int  getBatteryCurrent() { return 0; }
+};
+
+struct TEmbedBoard {
+  LGFX          Display;
+  TEmbedSpeaker Speaker;
+  TEmbedPower   Power;
+  void update() {}
+};
+
+extern TEmbedBoard BOARD_INSTANCE;
