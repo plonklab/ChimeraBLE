@@ -66,12 +66,16 @@ bool TEmbedPower::isCharging() {
 namespace {
 constexpr int      kI2sBclk = 46, kI2sWs = 40, kI2sDout = 7;
 constexpr uint32_t kRate    = 16000;
+constexpr uint32_t kDmaDesc = 6, kDmaFrames = 240;  // ring = 1440 mono samples
 i2s_chan_handle_t g_tx = nullptr;
 bool     g_i2sUp = false;
 
 bool i2sInit() {
   if (g_i2sUp) return true;
   i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+  cc.dma_desc_num  = kDmaDesc;
+  cc.dma_frame_num = kDmaFrames;
+  cc.auto_clear    = true;  // emit silence (not the last buffer) on underrun
   if (i2s_new_channel(&cc, &g_tx, nullptr) != ESP_OK) return false;
   i2s_std_config_t sc = {};
   sc.clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(kRate);
@@ -95,6 +99,13 @@ bool i2sInit() {
 void i2sWrite(const int16_t *buf, size_t n) {
   size_t wrote = 0;
   i2s_channel_write(g_tx, buf, n * sizeof(int16_t), &wrote, 200);
+}
+
+// Overwrite the whole DMA ring with silence so no stale tone lingers.
+void i2sFlush() {
+  if (!g_i2sUp) return;
+  int16_t z[kDmaFrames] = {0};
+  for (uint32_t i = 0; i <= kDmaDesc; i++) i2sWrite(z, kDmaFrames);
 }
 }  // namespace
 
@@ -121,11 +132,8 @@ void TEmbedSpeaker::tone(float freqHz, uint32_t ms) {
     i2sWrite(buf, n);
     done += n;
   }
+  i2sFlush();
 }
 
-void TEmbedSpeaker::stop() {
-  if (!g_i2sUp) return;
-  int16_t z[64] = {0};
-  i2sWrite(z, 64);
-}
+void TEmbedSpeaker::stop() { i2sFlush(); }
 #endif
