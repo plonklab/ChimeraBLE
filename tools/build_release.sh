@@ -10,6 +10,8 @@
 #   ChimeraBLE_xiao_esp32c5_merged.bin   full 0x0 image  (Seeed XIAO ESP32-C5)
 #   ChimeraBLE_cores3_merged.bin         full 0x0 image  (M5Stack CoreS3 / S3)
 #   ChimeraBLE_cores3_M5Launcher.bin     app-only image  (sideload via bmorcelli's launcher)
+#   ChimeraBLE_tembed_merged.bin         full 0x0 image  (LilyGo T-Embed CC1101 Plus / S3)
+#   ChimeraBLE_tembed_M5Launcher.bin     app-only image  (T-Embed; oui.bin on SD)
 #   oui.bin                              OUI vendor DB    (copy to the Cardputer/CoreS3 SD card)
 #
 # The merged images bundle bootloader + partition table + app + a LittleFS image
@@ -45,7 +47,7 @@ cp -f data/oui.bin "$DIST/oui.bin"
 
 # 2) Merged 0x0 images for each board. make_merged_bin.sh runs `pio run` +
 #    `pio run -t buildfs`, then esptool merge-bin, writing <env>_merged.bin.
-for env in cardputer esp32dev xiao_esp32c5 cores3; do
+for env in cardputer esp32dev xiao_esp32c5 cores3 tembed; do
   echo "[release] building merged image: $env ..."
   bash tools/make_merged_bin.sh "$env"
   mv -f "${env}_merged.bin" "$DIST/ChimeraBLE_${env}_merged.bin"
@@ -55,6 +57,7 @@ done
 #    bmorcelli launcher. Reuse the apps step 2 just built (no extra compile).
 cp -f .pio/build/cardputer/firmware.bin "$DIST/ChimeraBLE_cardputer_M5Launcher.bin"
 cp -f .pio/build/cores3/firmware.bin    "$DIST/ChimeraBLE_cores3_M5Launcher.bin"
+cp -f .pio/build/tembed/firmware.bin    "$DIST/ChimeraBLE_tembed_M5Launcher.bin"
 
 echo ""
 echo "[release] done. Release assets in dist/:"
@@ -64,4 +67,6 @@ ls -lh "$DIST/ChimeraBLE_cardputer_merged.bin" \
        "$DIST/ChimeraBLE_xiao_esp32c5_merged.bin" \
        "$DIST/ChimeraBLE_cores3_merged.bin" \
        "$DIST/ChimeraBLE_cores3_M5Launcher.bin" \
+       "$DIST/ChimeraBLE_tembed_merged.bin" \
+       "$DIST/ChimeraBLE_tembed_M5Launcher.bin" \
        "$DIST/oui.bin"
