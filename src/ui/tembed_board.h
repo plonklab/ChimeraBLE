@@ -44,7 +44,11 @@ class LGFX : public lgfx::LGFX_Device {
       cfg.freq_read   = 16000000;
       cfg.spi_3wire   = false;
       cfg.use_lock    = true;
-      cfg.dma_channel = SPI_DMA_CH_AUTO;
+      // No DMA: the display shares SPI2/FSPI with the Arduino SD driver, which
+      // re-inits the bus in App::sdInit(). A DMA channel is the fragile shared
+      // resource there (SD's bus re-init strands it -> display freezes after SD
+      // mounts). Polled transfers survive the shared-bus re-init. (HIL 2026-11-13.)
+      cfg.dma_channel = 0;
       cfg.pin_sclk    = tembed_pins::TFT_SCLK;
       cfg.pin_mosi    = tembed_pins::TFT_MOSI;
       cfg.pin_miso    = -1;   // write-only; MISO (IO10) is left to the SD driver
@@ -61,7 +65,7 @@ class LGFX : public lgfx::LGFX_Device {
       cfg.panel_height     = 320;
       cfg.offset_x         = 35;
       cfg.offset_y         = 0;
-      cfg.offset_rotation  = 0;
+      cfg.offset_rotation  = 2;   // board is mounted 180deg vs UI's setRotation(1) (HIL 2026-11-13)
       cfg.dummy_read_pixel = 8;
       cfg.dummy_read_bits  = 1;
       cfg.readable         = false;
