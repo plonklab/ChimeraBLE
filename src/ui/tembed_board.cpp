@@ -100,13 +100,6 @@ void i2sWrite(const int16_t *buf, size_t n) {
   size_t wrote = 0;
   i2s_channel_write(g_tx, buf, n * sizeof(int16_t), &wrote, 200);
 }
-
-// Overwrite the whole DMA ring with silence so no stale tone lingers.
-void i2sFlush() {
-  if (!g_i2sUp) return;
-  int16_t z[kDmaFrames] = {0};
-  for (uint32_t i = 0; i <= kDmaDesc; i++) i2sWrite(z, kDmaFrames);
-}
 }  // namespace
 
 void TEmbedSpeaker::setVolume(uint8_t v) { vol_ = v; }
@@ -132,8 +125,13 @@ void TEmbedSpeaker::tone(float freqHz, uint32_t ms) {
     i2sWrite(buf, n);
     done += n;
   }
-  i2sFlush();
 }
 
-void TEmbedSpeaker::stop() { i2sFlush(); }
+// Immediate cut-off: disabling drops queued DMA; re-enable so tone() still works.
+// auto_clear keeps the line silent whenever nothing is queued.
+void TEmbedSpeaker::stop() {
+  if (!g_i2sUp) return;
+  i2s_channel_disable(g_tx);
+  i2s_channel_enable(g_tx);
+}
 #endif
