@@ -184,6 +184,10 @@ void poll() {
   }
 }
 
+bool wheel_active() { return g_mode == tinput::Mode::Wheel; }
+
+std::string wheel_label(int offset) { return g_wheel.label_at_offset(offset); }
+
 hal::KeyState read() {
   hal::KeyState k = g_pending;
   g_pending = hal::KeyState{};

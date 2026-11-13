@@ -17,6 +17,40 @@
 #include "scanner.h"
 #include "uuid_db.h"
 
+#if defined(CHIMERA_BOARD_TEMBED)
+#include "tembed_input.h"
+
+// T-Embed char-wheel: 5-row window (2 above, selected, 2 below) as a right-edge
+// strip, composited into the canvas just before pushSprite so it survives the
+// per-frame full redraw. Placement is glass-tunable.
+static void drawWheelOverlay(M5Canvas& c) {
+  if (!tembed_input::wheel_active()) return;
+  const int16_t rowH = 24, stripW = 44, n = 5;
+  const int16_t stripH = rowH * n + 14;
+  int16_t x = c.width() - stripW - 2;
+  int16_t y = (c.height() - stripH) / 2;
+  c.fillRect(x, y, stripW, stripH, 0x0000);
+  c.drawRect(x, y, stripW, stripH, 0xFFFF);
+  c.setTextSize(1);
+  c.setTextColor(0xFFFF, 0x0000);
+  c.setCursor(x + 6, y + 3);
+  c.print("WHEEL");
+  c.setTextSize(2);
+  for (int i = 0; i < n; ++i) {
+    const int off = i - 2;
+    const int16_t ry = y + 12 + i * rowH;
+    const bool sel = (off == 0);
+    c.fillRect(x + 2, ry, stripW - 4, rowH - 2, sel ? 0xFFFF : 0x0000);
+    c.setTextColor(sel ? 0x0000 : 0xFFFF, sel ? 0xFFFF : 0x0000);
+    std::string t = tembed_input::wheel_label(off);
+    int16_t tw = (int16_t)t.size() * 12;
+    c.setCursor(x + (stripW - tw) / 2, ry + 4);
+    c.print(t.c_str());
+  }
+  c.setTextSize(1);
+}
+#endif
+
 // CP437 arrow glyphs, matching the Cardputer's orange key legends:
 //   ; = up (0x18)   . = down (0x19)   / = right (0x1A)   , = left (0x1B)
 #define A_UP "\x18"
@@ -105,6 +139,9 @@ void UI::draw(const MenuView& menu, const String& inputBuffer,
   }
 
   drawFooter(menu, inputBuffer, w, h);
+#if defined(CHIMERA_BOARD_TEMBED)
+  drawWheelOverlay(canvas_);
+#endif
   canvas_.pushSprite(&BOARD.Display, 0, 0);
 }
 
@@ -152,6 +189,9 @@ void UI::message(const char* title, const char* sub, uint8_t subSize, const char
     canvas_.print(hint);
   }
   canvas_.setTextSize(1);   // restore default for subsequent draws
+#if defined(CHIMERA_BOARD_TEMBED)
+  drawWheelOverlay(canvas_);
+#endif
   canvas_.pushSprite(&BOARD.Display, 0, 0);
   lastDrawMs_ = millis();
 }
@@ -734,6 +774,9 @@ void UI::drawSplash() {
   canvas_.print(gh);
 
   canvas_.setTextSize(1);
+#if defined(CHIMERA_BOARD_TEMBED)
+  drawWheelOverlay(canvas_);
+#endif
   canvas_.pushSprite(&BOARD.Display, 0, 0);
   lastDrawMs_ = millis();
 }
@@ -777,6 +820,9 @@ void UI::drawCharging(int level, bool charging, int16_t mv, int32_t ma) {
   canvas_.setCursor((w - (int16_t)strlen(hint) * 6) / 2 + ox, h - 12 + oy);
   canvas_.print(hint);
 
+#if defined(CHIMERA_BOARD_TEMBED)
+  drawWheelOverlay(canvas_);
+#endif
   canvas_.pushSprite(&BOARD.Display, 0, 0);
   lastDrawMs_ = millis();
 }
