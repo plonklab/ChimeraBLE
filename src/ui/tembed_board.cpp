@@ -134,4 +134,95 @@ void TEmbedSpeaker::stop() {
   i2s_channel_disable(g_tx);
   i2s_channel_enable(g_tx);
 }
+
+// ---- WS2812 status LEDs (IDF RMT TX, copy encoder; no external LED lib) ----
+// Policy: Idle = calm dim blue, Scanning = pulsing cyan, Connected = solid green.
+// State is read board-side (scanner::isScanning / connection::isConnected), so
+// App.cpp is untouched. setState() overrides until the next tick() poll.
+#if CHIMERA_LEDS
+#include <driver/rmt_tx.h>
+#include "scanner.h"
+#include "connection.h"
+
+namespace {
+constexpr int      kLedCount = 8;
+constexpr uint32_t kRmtHz    = 10000000;  // 10 MHz -> 100 ns/tick
+// WS2812B: T0H 0.4us, T0L 0.85us, T1H 0.8us, T1L 0.45us (+/-150ns); reset >50us low.
+constexpr uint16_t kT0H = 4, kT0L = 8, kT1H = 8, kT1L = 5;
+rmt_channel_handle_t g_led = nullptr;
+rmt_encoder_handle_t g_enc = nullptr;
+bool g_ledUp = false;
+tembed_leds::State g_state = tembed_leds::Idle;
+uint8_t g_lastRgb[3] = {0xFF, 0xFF, 0xFF};
+bool g_lastValid = false;
+
+void ledShow(uint8_t r, uint8_t g, uint8_t b) {
+  if (!g_ledUp) return;
+  if (g_lastValid && g_lastRgb[0] == r && g_lastRgb[1] == g && g_lastRgb[2] == b) return;
+  rmt_symbol_word_t sym[kLedCount * 24];
+  const uint8_t grb[3] = {g, r, b};  // WS2812 wire order is GRB
+  int n = 0;
+  for (int p = 0; p < kLedCount; p++)
+    for (int c = 0; c < 3; c++)
+      for (int bit = 7; bit >= 0; bit--) {
+        const bool one = (grb[c] >> bit) & 1;
+        sym[n].level0    = 1;
+        sym[n].duration0 = one ? kT1H : kT0H;
+        sym[n].level1    = 0;
+        sym[n].duration1 = one ? kT1L : kT0L;
+        n++;
+      }
+  rmt_transmit_config_t tc = {};
+  tc.loop_count = 0;
+  if (rmt_transmit(g_led, g_enc, sym, sizeof(sym), &tc) != ESP_OK) return;
+  rmt_tx_wait_all_done(g_led, 20);  // sym[] is on the stack; wait before returning
+  g_lastRgb[0] = r; g_lastRgb[1] = g; g_lastRgb[2] = b;
+  g_lastValid = true;
+}
+}  // namespace
+
+void tembed_leds::begin() {
+  if (g_ledUp) return;
+  rmt_tx_channel_config_t cc = {};
+  cc.gpio_num          = (gpio_num_t)tembed_pins::LED_DATA;
+  cc.clk_src           = RMT_CLK_SRC_DEFAULT;
+  cc.resolution_hz     = kRmtHz;
+  cc.mem_block_symbols = 64;
+  cc.trans_queue_depth = 2;
+  if (rmt_new_tx_channel(&cc, &g_led) != ESP_OK) return;
+  rmt_copy_encoder_config_t ec = {};
+  if (rmt_new_copy_encoder(&ec, &g_enc) != ESP_OK || rmt_enable(g_led) != ESP_OK) {
+    rmt_del_channel(g_led);
+    g_led = nullptr;
+    return;
+  }
+  g_ledUp = true;
+  ledShow(0, 0, 8);
+}
+
+void tembed_leds::setState(State s) { g_state = s; }
+
+void tembed_leds::tick() {
+  if (!g_ledUp) return;
+  static uint32_t lastMs = 0;
+  const uint32_t now = millis();
+  if (now - lastMs < 30) return;  // ~33 fps cap
+  lastMs = now;
+  g_state = connection::isConnected() ? Connected
+          : scanner::isScanning()     ? Scanning
+                                      : Idle;
+  switch (g_state) {
+    case Connected: ledShow(0, 40, 0); break;
+    case Scanning: {
+      // triangle wave, 1.2 s period, 4..60 cyan
+      const uint32_t ph = now % 1200;
+      const uint32_t t  = ph < 600 ? ph : 1200 - ph;
+      const uint8_t  v  = 4 + (uint8_t)((56u * t) / 600u);
+      ledShow(0, v / 2, v);
+      break;
+    }
+    default: ledShow(0, 0, 8); break;
+  }
+}
+#endif
 #endif

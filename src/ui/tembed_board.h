@@ -25,6 +25,7 @@ static constexpr int TFT_DC   = 16;
 static constexpr int TFT_RST  = -1;   // IO40 is the audio word-clock; Task 7 resolves
 static constexpr int TFT_BL   = 21;
 static constexpr int PWR_EN   = 15;
+static constexpr int LED_DATA = 14;   // 8x WS2812
 }  // namespace tembed_pins
 
 // ST7789, 170x320 native, used as 320x170 landscape.
@@ -103,11 +104,29 @@ struct TEmbedPower {
   int  getBatteryCurrent();
 };
 
+// WS2812 x8 status LEDs (GPIO14). Compiled only when CHIMERA_LEDS != 0;
+// otherwise begin/setState/tick are empty inline no-ops (zero RMT code linked).
+#ifndef CHIMERA_LEDS
+#define CHIMERA_LEDS 1
+#endif
+namespace tembed_leds {
+enum State : uint8_t { Idle, Scanning, Connected };
+#if CHIMERA_LEDS
+void begin();
+void setState(State s);
+void tick();   // polls scanner/connection state + advances the pulse
+#else
+inline void begin() {}
+inline void setState(State) {}
+inline void tick() {}
+#endif
+}  // namespace tembed_leds
+
 struct TEmbedBoard {
   LGFX          Display;
   TEmbedSpeaker Speaker;
   TEmbedPower   Power;
-  void update() {}
+  void update() { tembed_leds::tick(); }
 };
 
 extern TEmbedBoard BOARD_INSTANCE;

@@ -65,6 +65,7 @@ void begin() {
   BOARD.Display.init();
   BOARD.Display.setBrightness(128);
   tembed_input::begin();
+  tembed_leds::begin();
 }
 
 void update() {
