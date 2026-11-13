@@ -18,6 +18,7 @@
 #include "hid_parser.h"
 #include "mitm.h"
 #include "oui_db.h"
+#include "oui_source.h"
 #include "scanner.h"
 #include "sentry.h"
 #include "uuid_db.h"
@@ -226,17 +227,18 @@ void App::begin() {
   ui_.drawSplash();
   delay(1000);
 
-  // LittleFS is still used as a fallback store for clone profiles/markers when no
-  // SD is present. NOTE: under the M5 launcher our partition table isn't active,
-  // so this may mount the launcher's data partition or fail - handled gracefully.
-  if (!LittleFS.begin(true)) log("LittleFS mount failed (clone fallback unavailable)");
+  // LittleFS doubles as a fallback store for clone profiles/markers when no SD is
+  // present, and (on a direct 0x0 flash) carries the embedded OUI DB. NOTE: under
+  // the M5 launcher our partition table isn't active, so this may mount the
+  // launcher's data partition or fail - handled gracefully. Keep the mount result:
+  // the OUI fallback below must not touch LittleFS if it never mounted.
+  const bool lfsOk = LittleFS.begin(true);
+  if (!lfsOk) log("LittleFS mount failed (clone fallback + embedded OUI unavailable)");
 
   // Prefer the microSD card for clone profiles + reboot markers when one is
   // present (bigger, removable, shareable); fall back to on-chip flash if not.
-  // The OUI vendor DB lives ONLY on SD here: the Cardputer is sideloaded via the
-  // M5 launcher under a different partition table, so the embedded LittleFS OUI
-  // partition isn't present at runtime. Must run before applyBootSpoof so a
-  // pending spoof/MITM profile loads from whichever store it was saved to.
+  // Must run before applyBootSpoof so a pending spoof/MITM profile loads from
+  // whichever store it was saved to.
   if (sdInit()) {
     clone::setStorage(&SD, (sdBase_ + "/clones").c_str());
     sentry::setStorage(&SD, (sdBase_ + "/sentry").c_str());
@@ -247,12 +249,24 @@ void App::begin() {
       oui_db::begin(SD, ouiPath.c_str());
       if (oui_db::available()) log(String("OUI vendor DB: ") + ouiPath);
     }
-    if (!oui_db::available())
-      log(String("no oui.bin found (put it in ") + sdBase_ + " for vendor names)");
     log("clone storage: SD card");
   } else {
-    log("no SD - clone uses flash; OUI vendor lookups disabled");
+    log("no SD - clone uses flash");
   }
+
+  // OUI fallback: if the SD card didn't supply the vendor DB (no card, or no
+  // oui.bin on it), use the copy baked into the merged firmware's LittleFS. SD
+  // wins when it already loaded one (removable + refreshable); the embedded copy
+  // is frozen at release, so we never override a live SD DB with it. Only present
+  // on a direct 0x0 flash - under the M5 launcher /oui.bin won't exist, so this
+  // no-ops. (Policy + guards are host-tested: src/ui/oui_source.h, test/test_oui/.)
+  if (oui_src::use_embedded(oui_db::available(), lfsOk,
+                            lfsOk && LittleFS.exists("/oui.bin"))) {
+    oui_db::begin(LittleFS, "/oui.bin");
+    if (oui_db::available()) log("OUI vendor DB: /oui.bin (embedded)");
+  }
+  if (!oui_db::available())
+    log(String("no oui.bin found (SD ") + sdBase_ + " or embedded) - vendor names off");
   sentry::load();   // watchlist rules (SD or flash)
 
   // MAC-spoof must be applied before NimBLE init (see clone::applyBootSpoof).
