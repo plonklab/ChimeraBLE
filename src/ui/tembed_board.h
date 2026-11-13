@@ -90,12 +90,14 @@ struct TEmbedSpeaker {
   void stop() {}
 };
 
-// Stub power/battery (real fuel-gauge/ADC in a later task).
+// Power/battery over the shared I2C bus (SDA=8, SCL=18): BQ27220 fuel gauge
+// (0x55) for SoC/voltage/current, BQ25896 charger (0x6B) for charge status.
+// Defined in tembed_board.cpp. Failed reads return 0/false.
 struct TEmbedPower {
-  int  getBatteryLevel()   { return 0; }
-  bool isCharging()        { return false; }
-  int  getBatteryVoltage() { return 0; }
-  int  getBatteryCurrent() { return 0; }
+  int  getBatteryLevel();
+  bool isCharging();
+  int  getBatteryVoltage();
+  int  getBatteryCurrent();
 };
 
 struct TEmbedBoard {
